@@ -902,6 +902,7 @@ These community ports pioneered multi-runtime support:
 |---------|----------|-------------|
 | [gsd-opencode](https://github.com/rokicool/gsd-opencode) | OpenCode | Original OpenCode adaptation |
 | gsd-gemini (archived) | Gemini CLI | Original Gemini adaptation by uberfuzzy |
+| [gad0lin/get-shit-done](https://github.com/gad0lin/get-shit-done) | Rovo Dev | Community fork adding Rovo Dev (Atlassian) support (`--rovodev`) |
 
 ---
 
