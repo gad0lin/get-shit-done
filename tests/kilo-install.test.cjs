@@ -239,7 +239,7 @@ describe('Source code integration (Kilo)', () => {
   });
 
   test('agent path replacement does not exclude Kilo', () => {
-    assert.ok(src.includes('if (!isCopilot && !isAntigravity)'), 'generic agent path replacement still applies');
+    assert.ok(src.includes('if (!isCopilot && !isAntigravity && !isRovodev)'), 'generic agent path replacement still applies');
   });
 
   test('finishInstall passes the actual config dir to Kilo permissions', () => {

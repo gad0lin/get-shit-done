@@ -1,3 +1,9 @@
+> **🔱 Community Fork** — This is [`gad0lin/get-shit-done`](https://github.com/gad0lin/get-shit-done), an unofficial fork of [`gsd-build/get-shit-done`](https://github.com/gsd-build/get-shit-done) that adds **[Rovo Dev](https://www.atlassian.com/software/rovo) as a first-class runtime**. Install from this fork directly:
+> ```bash
+> npx https://github.com/gad0lin/get-shit-done --rovodev --global
+> ```
+> Synced regularly with upstream. All upstream features intact.
+
 <div align="center">
 
 # GET SHIT DONE
@@ -182,6 +188,10 @@ npx get-shit-done-cc --qwen --local         # Install to ./.qwen/
 # CodeBuddy
 npx get-shit-done-cc --codebuddy --global   # Install to ~/.codebuddy/
 npx get-shit-done-cc --codebuddy --local    # Install to ./.codebuddy/
+
+# Rovo Dev (community fork only — install from GitHub)
+npx https://github.com/gad0lin/get-shit-done --rovodev --global  # Install to ~/.rovodev/
+npx https://github.com/gad0lin/get-shit-done --rovodev --local   # Install to ./.rovodev/
 
 # Cline
 npx get-shit-done-cc --cline --global       # Install to ~/.cline/

@@ -89,6 +89,7 @@ const hasTrae = args.includes('--trae');
 const hasQwen = args.includes('--qwen');
 const hasCodebuddy = args.includes('--codebuddy');
 const hasCline = args.includes('--cline');
+const hasRovodev = args.includes('--rovodev') || args.includes('--rovo-dev');
 const hasBoth = args.includes('--both'); // Legacy flag, keeps working
 const hasAll = args.includes('--all');
 const hasUninstall = args.includes('--uninstall') || args.includes('-u');
@@ -105,7 +106,7 @@ if (hasSdk && hasNoSdk) {
 // Runtime selection - can be set by flags or interactive prompt
 let selectedRuntimes = [];
 if (hasAll) {
-  selectedRuntimes = ['claude', 'kilo', 'opencode', 'gemini', 'codex', 'copilot', 'antigravity', 'cursor', 'windsurf', 'augment', 'trae', 'qwen', 'codebuddy', 'cline'];
+  selectedRuntimes = ['claude', 'kilo', 'opencode', 'gemini', 'codex', 'copilot', 'antigravity', 'cursor', 'windsurf', 'augment', 'trae', 'qwen', 'codebuddy', 'cline', 'rovodev'];
 } else if (hasBoth) {
   selectedRuntimes = ['claude', 'opencode'];
 } else {
@@ -123,6 +124,7 @@ if (hasAll) {
   if (hasQwen) selectedRuntimes.push('qwen');
   if (hasCodebuddy) selectedRuntimes.push('codebuddy');
   if (hasCline) selectedRuntimes.push('cline');
+  if (hasRovodev) selectedRuntimes.push('rovodev');
 }
 
 // WSL + Windows Node.js detection
@@ -174,6 +176,7 @@ function getDirName(runtime) {
   if (runtime === 'qwen') return '.qwen';
   if (runtime === 'codebuddy') return '.codebuddy';
   if (runtime === 'cline') return '.cline';
+  if (runtime === 'rovodev') return '.rovodev';
   return '.claude';
 }
 
@@ -209,6 +212,7 @@ function getConfigDirFromHome(runtime, isGlobal) {
   if (runtime === 'qwen') return "'.qwen'";
   if (runtime === 'codebuddy') return "'.codebuddy'";
   if (runtime === 'cline') return "'.cline'";
+  if (runtime === 'rovodev') return "'.rovodev'";
   return "'.claude'";
 }
 
@@ -403,6 +407,17 @@ function getGlobalDir(runtime, explicitDir = null) {
     return path.join(os.homedir(), '.cline');
   }
 
+  if (runtime === 'rovodev') {
+    // Rovo Dev: --config-dir > ROVODEV_CONFIG_DIR > ~/.rovodev
+    if (explicitDir) {
+      return expandTilde(explicitDir);
+    }
+    if (process.env.ROVODEV_CONFIG_DIR) {
+      return expandTilde(process.env.ROVODEV_CONFIG_DIR);
+    }
+    return path.join(os.homedir(), '.rovodev');
+  }
+
   // Claude Code: --config-dir > CLAUDE_CONFIG_DIR > ~/.claude
   if (explicitDir) {
     return expandTilde(explicitDir);
@@ -423,7 +438,7 @@ const banner = '\n' +
   '\n' +
   '  Get Shit Done ' + dim + 'v' + pkg.version + reset + '\n' +
   '  A meta-prompting, context engineering and spec-driven\n' +
-  '  development system for Claude Code, OpenCode, Gemini, Kilo, Codex, Copilot, Antigravity, Cursor, Windsurf, Augment, Trae, Qwen Code, Cline and CodeBuddy by TÂCHES.\n';
+  '  development system for Claude Code, OpenCode, Gemini, Kilo, Codex, Copilot, Antigravity, Cursor, Windsurf, Augment, Trae, Qwen Code, Cline, CodeBuddy, and Rovo Dev by TÂCHES.\n';
 
 // Parse --config-dir argument
 function parseConfigDirArg() {
@@ -1865,6 +1880,85 @@ function convertClaudeAgentToClineAgent(content) {
 }
 
 // ── End Cline converters ─────────────────────────────────────────────────────
+
+// ── Rovo Dev converters ──────────────────────────────────────────────────────
+
+/**
+ * Convert Claude tool names to Rovo Dev equivalents.
+ * Rovo Dev uses snake_case tool names that differ from Claude's PascalCase.
+ */
+function convertClaudeToRovodevTools(claudeTool) {
+  const toolMap = {
+    'Read': 'open_files',
+    'Write': 'create_file',
+    'Edit': 'find_and_replace_code',
+    'MultiEdit': 'find_and_replace_code',
+    'Bash': 'bash',
+    'Glob': 'grep',
+    'Grep': 'grep',
+    'LS': 'expand_folder',
+    'TodoRead': 'update_todo',
+    'TodoWrite': 'update_todo',
+    'WebSearch': 'web_search',
+    'WebFetch': 'web_search',
+    'Task': 'invoke_subagents',
+    'Computer': 'bash',
+    'exit_plan_mode': 'exit_plan_mode',
+  };
+  return toolMap[claudeTool] || claudeTool;
+}
+
+function convertRovodevToolName(toolName) {
+  return convertClaudeToRovodevTools(toolName);
+}
+
+function convertClaudeToRovodevMarkdown(content, isGlobal = false) {
+  let converted = content;
+  // Command prefix: Claude Code uses /gsd- prefix, Rovo Dev uses !gsd- prefix
+  converted = converted.replace(/\/gsd-/g, '!gsd-');
+  // Path replacement: .claude → .rovodev
+  converted = converted.replace(/\$HOME\/\.claude\//g, '$HOME/.rovodev/');
+  converted = converted.replace(/~\/\.claude\//g, '~/.rovodev/');
+  converted = converted.replace(/\.\/\.claude\//g, './.rovodev/');
+  converted = converted.replace(/(?<![A-Za-z0-9_\-./~$])\.claude\//g, '.rovodev/');
+  converted = converted.replace(/\.claude\/skills\//g, '.rovodev/skills/');
+  converted = converted.replace(/CLAUDE\.md/g, 'AGENTS.md');
+  converted = converted.replace(/\bClaude Code\b/g, 'Rovo Dev');
+  return converted;
+}
+
+function convertClaudeCommandToRovodevSkill(content, skillName, isGlobal = false) {
+  let converted = convertClaudeToRovodevMarkdown(content, isGlobal);
+  return converted;
+}
+
+function convertClaudeAgentToRovodevAgent(content, isGlobal = false) {
+  let converted = convertClaudeToRovodevMarkdown(content, isGlobal);
+  const { frontmatter, body } = extractFrontmatterAndBody(converted);
+  if (!frontmatter) return converted;
+  const name = extractFrontmatterField(frontmatter, 'name') || 'unknown';
+  const description = extractFrontmatterField(frontmatter, 'description') || '';
+  const cleanFrontmatter = `---\nname: ${yamlIdentifier(name)}\ndescription: ${yamlQuote(toSingleLine(description))}\n---`;
+  return `${cleanFrontmatter}\n${body}`;
+}
+
+function copyCommandsAsRovodevSkills(srcDir, skillsDir, prefix, pathPrefix, runtime) {
+  if (!fs.existsSync(srcDir)) return;
+  fs.mkdirSync(skillsDir, { recursive: true });
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.name.endsWith('.md')) continue;
+    const srcPath = path.join(srcDir, entry.name);
+    const skillName = prefix + '-' + entry.name.replace(/\.md$/, '');
+    const destPath = path.join(skillsDir, skillName, 'SKILL.md');
+    fs.mkdirSync(path.join(skillsDir, skillName), { recursive: true });
+    let content = fs.readFileSync(srcPath, 'utf8');
+    content = convertClaudeCommandToRovodevSkill(content, skillName, pathPrefix);
+    fs.writeFileSync(destPath, content);
+  }
+}
+
+// ── End Rovo Dev converters ──────────────────────────────────────────────────
 
 function convertSlashCommandsToCodexSkillMentions(content) {
   // Convert colon-style skill invocations to Codex $ prefix
@@ -4553,6 +4647,7 @@ function copyWithPathReplacement(srcDir, destDir, pathPrefix, runtime, isCommand
   const isTrae = runtime === 'trae';
   const isQwen = runtime === 'qwen';
   const isCline = runtime === 'cline';
+  const isRovodev = runtime === 'rovodev';
   const dirName = getDirName(runtime);
 
   // Clean install: remove existing destination to prevent orphaned files
@@ -4573,7 +4668,7 @@ function copyWithPathReplacement(srcDir, destDir, pathPrefix, runtime, isCommand
       // Replace ~/.claude/ and $HOME/.claude/ and ./.claude/ with runtime-appropriate paths
       // Skip generic replacement for Copilot — convertClaudeToCopilotContent handles all paths
       let content = fs.readFileSync(srcPath, 'utf8');
-      if (!isCopilot && !isAntigravity) {
+      if (!isCopilot && !isAntigravity && !isRovodev) {
         const globalClaudeRegex = /~\/\.claude\//g;
         const globalClaudeHomeRegex = /\$HOME\/\.claude\//g;
         const localClaudeRegex = /\.\/\.claude\//g;
@@ -4626,6 +4721,9 @@ function copyWithPathReplacement(srcDir, destDir, pathPrefix, runtime, isCommand
       } else if (isCline) {
         content = convertClaudeToCliineMarkdown(content);
         fs.writeFileSync(destPath, content);
+      } else if (isRovodev) {
+        content = convertClaudeToRovodevMarkdown(content, isGlobal);
+        fs.writeFileSync(destPath, content);
       } else if (isQwen) {
         content = content.replace(/CLAUDE\.md/g, 'QWEN.md');
         content = content.replace(/\bClaude Code\b/g, 'Qwen Code');
@@ -4674,6 +4772,13 @@ function copyWithPathReplacement(srcDir, destDir, pathPrefix, runtime, isCommand
       jsContent = jsContent.replace(/\.claude\/skills\//g, '.cline/skills/');
       jsContent = jsContent.replace(/CLAUDE\.md/g, '.clinerules');
       jsContent = jsContent.replace(/\bClaude Code\b/g, 'Cline');
+      fs.writeFileSync(destPath, jsContent);
+    } else if (isRovodev && (entry.name.endsWith('.cjs') || entry.name.endsWith('.js'))) {
+      let jsContent = fs.readFileSync(srcPath, 'utf8');
+      jsContent = jsContent.replace(/\/gsd-/g, '!gsd-');
+      jsContent = jsContent.replace(/\.claude\/skills\//g, '.rovodev/skills/');
+      jsContent = jsContent.replace(/CLAUDE\.md/g, 'AGENTS.md');
+      jsContent = jsContent.replace(/\bClaude Code\b/g, 'Rovo Dev');
       fs.writeFileSync(destPath, jsContent);
     } else if (isQwen && (entry.name.endsWith('.cjs') || entry.name.endsWith('.js'))) {
       let jsContent = fs.readFileSync(srcPath, 'utf8');
@@ -4861,6 +4966,7 @@ function uninstall(isGlobal, runtime = 'claude') {
   const isTrae = runtime === 'trae';
   const isQwen = runtime === 'qwen';
   const isCodebuddy = runtime === 'codebuddy';
+  const isRovodev = runtime === 'rovodev';
   const dirName = getDirName(runtime);
 
   // Get the target directory based on runtime and install type
@@ -5838,6 +5944,7 @@ function install(isGlobal, runtime = 'claude') {
   const isQwen = runtime === 'qwen';
   const isCodebuddy = runtime === 'codebuddy';
   const isCline = runtime === 'cline';
+  const isRovodev = runtime === 'rovodev';
   const dirName = getDirName(runtime);
   const src = path.join(__dirname, '..');
 
@@ -6131,7 +6238,7 @@ function install(isGlobal, runtime = 'claude') {
         const bareDirRegex = /~\/\.claude\b/g;
         const bareHomeDirRegex = /\$HOME\/\.claude\b/g;
         const normalizedPathPrefix = pathPrefix.replace(/\/$/, '');
-        if (!isCopilot && !isAntigravity) {
+        if (!isCopilot && !isAntigravity && !isRovodev) {
           content = content.replace(dirRegex, pathPrefix);
           content = content.replace(homeDirRegex, pathPrefix);
           content = content.replace(bareDirRegex, normalizedPathPrefix);
@@ -6171,6 +6278,8 @@ function install(isGlobal, runtime = 'claude') {
           content = convertClaudeAgentToCodebuddyAgent(content);
         } else if (isCline) {
           content = convertClaudeAgentToClineAgent(content);
+        } else if (isRovodev) {
+          content = convertClaudeAgentToRovodevAgent(content, isGlobal);
         } else if (isQwen) {
           content = content.replace(/CLAUDE\.md/g, 'QWEN.md');
           content = content.replace(/\bClaude Code\b/g, 'Qwen Code');
@@ -6208,7 +6317,7 @@ function install(isGlobal, runtime = 'claude') {
     failures.push('VERSION');
   }
 
-  if (!isCodex && !isCopilot && !isCursor && !isWindsurf && !isTrae && !isCline) {
+  if (!isCodex && !isCopilot && !isCursor && !isWindsurf && !isTrae && !isCline && !isRovodev) {
     // Write package.json to force CommonJS mode for GSD scripts
     // Prevents "require is not defined" errors when project has "type": "module"
     // Node.js walks up looking for package.json - this stops inheritance from project
@@ -6452,6 +6561,11 @@ function install(isGlobal, runtime = 'claude') {
 
   if (isTrae) {
     // Trae uses skills — no settings.json hooks needed
+    return { settingsPath: null, settings: null, statuslineCommand: null, runtime, configDir: targetDir };
+  }
+
+  if (isRovodev) {
+    // Rovo Dev uses skills — no settings.json hooks needed
     return { settingsPath: null, settings: null, statuslineCommand: null, runtime, configDir: targetDir };
   }
 
@@ -6798,8 +6912,9 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
   const isWindsurf = runtime === 'windsurf';
   const isTrae = runtime === 'trae';
   const isCline = runtime === 'cline';
+  const isRovodev = runtime === 'rovodev';
 
-  if (shouldInstallStatusline && !isOpencode && !isKilo && !isCodex && !isCopilot && !isCursor && !isWindsurf && !isTrae) {
+  if (shouldInstallStatusline && !isOpencode && !isKilo && !isCodex && !isCopilot && !isCursor && !isWindsurf && !isTrae && !isRovodev) {
     if (!isGlobal && !forceStatusline) {
       // Local installs skip statusLine by default: repo settings.json takes precedence over
       // profile-level settings.json in Claude Code, so writing here would silently clobber
@@ -6816,7 +6931,7 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
   }
 
   // Write settings when runtime supports settings.json
-  if (!isCodex && !isCopilot && !isKilo && !isCursor && !isWindsurf && !isTrae && !isCline) {
+  if (!isCodex && !isCopilot && !isKilo && !isCursor && !isWindsurf && !isTrae && !isCline && !isRovodev) {
     writeSettings(settingsPath, settings);
   }
 
@@ -6864,6 +6979,7 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
   if (runtime === 'trae') program = 'Trae';
   if (runtime === 'cline') program = 'Cline';
   if (runtime === 'qwen') program = 'Qwen Code';
+  if (runtime === 'rovodev') program = 'Rovo Dev';
 
   let command = '/gsd-new-project';
   if (runtime === 'opencode') command = '/gsd-new-project';
@@ -6877,6 +6993,7 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
   if (runtime === 'trae') command = '/gsd-new-project';
   if (runtime === 'cline') command = '/gsd-new-project';
   if (runtime === 'qwen') command = '/gsd-new-project';
+  if (runtime === 'rovodev') command = '!gsd-new-project';
   console.log(`
   ${green}Done!${reset} Open a blank directory in ${program} and run ${cyan}${command}${reset}.
 
@@ -6968,9 +7085,10 @@ function promptRuntime(callback) {
     '11': 'opencode',
     '12': 'qwen',
     '13': 'trae',
-    '14': 'windsurf'
+    '14': 'windsurf',
+    '15': 'rovodev'
   };
-  const allRuntimes = ['claude', 'antigravity', 'augment', 'cline', 'codebuddy', 'codex', 'copilot', 'cursor', 'gemini', 'kilo', 'opencode', 'qwen', 'trae', 'windsurf'];
+  const allRuntimes = ['claude', 'antigravity', 'augment', 'cline', 'codebuddy', 'codex', 'copilot', 'cursor', 'gemini', 'kilo', 'opencode', 'qwen', 'trae', 'windsurf', 'rovodev'];
 
   console.log(`  ${yellow}Which runtime(s) would you like to install for?${reset}\n\n  ${cyan}1${reset}) Claude Code  ${dim}(~/.claude)${reset}
   ${cyan}2${reset}) Antigravity  ${dim}(~/.gemini/antigravity)${reset}
@@ -6986,7 +7104,8 @@ function promptRuntime(callback) {
   ${cyan}12${reset}) Qwen Code    ${dim}(~/.qwen)${reset}
   ${cyan}13${reset}) Trae         ${dim}(~/.trae)${reset}
   ${cyan}14${reset}) Windsurf     ${dim}(~/.codeium/windsurf)${reset}
-  ${cyan}15${reset}) All
+  ${cyan}15${reset}) Rovo Dev     ${dim}(~/.rovodev)${reset}
+  ${cyan}16${reset}) All
 
   ${dim}Select multiple: 1,2,6 or 1 2 6${reset}
 `);
@@ -6997,7 +7116,7 @@ function promptRuntime(callback) {
     const input = answer.trim() || '1';
 
     // "All" shortcut
-    if (input === '15') {
+    if (input === '16') {
       callback(allRuntimes);
       return;
     }
@@ -7471,6 +7590,12 @@ if (process.env.GSD_TEST_MODE) {
     convertClaudeCommandToWindsurfSkill,
     convertClaudeAgentToWindsurfAgent,
     copyCommandsAsWindsurfSkills,
+    convertClaudeToRovodevMarkdown,
+    convertClaudeCommandToRovodevSkill,
+    convertClaudeAgentToRovodevAgent,
+    convertClaudeToRovodevTools,
+    convertRovodevToolName,
+    copyCommandsAsRovodevSkills,
     convertClaudeToAugmentMarkdown,
     convertClaudeCommandToAugmentSkill,
     convertClaudeAgentToAugmentAgent,

@@ -5,6 +5,7 @@ All notable changes to GSD will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased](https://github.com/gsd-build/get-shit-done/compare/v1.38.5...HEAD)
+- **Rovo Dev runtime support** — Full installation and command conversion for Atlassian's Rovo Dev AI coding assistant (`--rovodev` / `--rovo-dev` flags)
 
 ## [1.38.5] - 2026-04-25
 
